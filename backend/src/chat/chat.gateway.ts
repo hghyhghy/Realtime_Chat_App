@@ -10,8 +10,6 @@ import { PrismaService } from "../prisma.service";
 import * as fs from "fs";
 import * as path from "path";
 
-
-
 @WebSocketGateway({ cors: true })
 export class ChatGateway {
   @WebSocketServer()
@@ -21,7 +19,7 @@ export class ChatGateway {
 
   @SubscribeMessage("sendMessage")
   async handleMessage(
-    @MessageBody() data: { username?: string; content?: string; imageUrl?: string },
+    @MessageBody() data: { username?: string; content?: string; fileUrl?: string; fileType?: string; fileName?: string },
     @ConnectedSocket() client: Socket
   ) {
     // Validate username
@@ -45,36 +43,45 @@ export class ChatGateway {
       });
     }
 
-    let imageUrl: string | null = null;
+    let fileUrl: string | null = null;
+    let fileType: string | null = null;
+    let fileName: string | null = null;
 
-    // If an image is sent, store it
-    if (data.imageUrl) {
-      const base64Data = data.imageUrl.replace(/^data:image\/\w+;base64,/, "");
-      const buffer = Buffer.from(base64Data, "base64");
-      const fileName = `image_${Date.now()}.png`; // Unique filename
-      const filePath = path.join(__dirname, "..", "uploads", fileName);
+    // Handle file upload
+    if (data.fileUrl) {
+      const base64Data = data.fileUrl.split(";base64,").pop();
+      const extension = data.fileType?.split("/")[1] || "bin";
+      const filePath = path.join(__dirname, "..", "uploads");
 
       // Ensure 'uploads' directory exists
-      if (!fs.existsSync(path.join(__dirname, "..", "uploads"))) {
-        fs.mkdirSync(path.join(__dirname, "..", "uploads"), { recursive: true });
+      if (!fs.existsSync(filePath)) {
+        fs.mkdirSync(filePath, { recursive: true });
       }
 
-      fs.writeFileSync(filePath, buffer);
-      imageUrl = `/uploads/${fileName}`;
+      const uniqueFileName = `${Date.now()}.${extension}`;
+      const fullFilePath = path.join(filePath, uniqueFileName);
+
+      fs.writeFileSync(fullFilePath, Buffer.from(base64Data!, "base64"));
+
+      fileUrl = `/uploads/${uniqueFileName}`;
+      fileType = data.fileType || "application/octet-stream";
+      fileName = data.fileName || uniqueFileName;
     }
 
-    // Validate message (if no text and no image, return an error)
-    if (!data.content && !data.imageUrl) {
-      console.error("Message content or image is required.");
-      return { error: "Message content or image is required" };
+    // Validate message (if no text and no file, return an error)
+    if (!data.content && !fileUrl) {
+      console.error("Message content or file is required.");
+      return { error: "Message content or file is required" };
     }
 
-    // Create message with either text or image URL
+    // Create message with either text or file
     const message = await this.prisma.message.create({
       data: {
-        content: data.content?.trim() || null, // Store content if available
+        content: data.content?.trim() || null,
         senderId: user.id,
-        imageUrl: data.imageUrl || null, // Store imageUrl if present
+        fileUrl,
+        fileType,
+        fileName,
       },
       include: { sender: true },
     });

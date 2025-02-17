@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as path from 'path';
 import * as serveStatic from 'serve-static';
+import * as express from 'express';
 
 async function bootstrap() {
   // Explicitly use NestExpressApplication for static asset handling
@@ -18,7 +19,8 @@ async function bootstrap() {
 
   // Serve static files (uploaded images)
   app.useStaticAssets(path.join(__dirname, '..', 'uploads'), { prefix: '/uploads' });
-  app.use('/uploads', serveStatic(path.join(__dirname, '..', 'uploads')));
+  app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
 
   await app.listen(process.env.PORT ?? 3001);
   console.log(`🚀 Server running on http://localhost:${process.env.PORT ?? 3001}`);

@@ -13,20 +13,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User{
-
-  id Int @id @default(autoincrement())
-  username String @unique
-  messages Message[] 
+model User {
+  id       Int       @id @default(autoincrement())
+  username String    @unique
+  messages Message[]
 }
 
-model Message{
+model Message {
+  id       Int     @id @default(autoincrement())
+  content  String?
+  fileUrl  String? // Stores the file path or URL
+  fileType String? // Stores MIME type (e.g., 'image/png', 'application/pdf')
 
-  id Int @id @default(autoincrement())
-  content String?
-  imageUrl String?
-  senderId Int
-  sender User @relation(fields: [senderId],references: [id])
+  // Optional: If you want to store original filename
+  fileName  String?
+  senderId  Int
+  sender    User     @relation(fields: [senderId], references: [id])
   createdAt DateTime @default(now())
-
 }
