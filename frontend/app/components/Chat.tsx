@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import React from 'react';
 import io from 'socket.io-client';
 import Image from 'next/image';
+import { TiAttachmentOutline } from "react-icons/ti";
+import { BsSendFill } from "react-icons/bs";
 
 const socket = io('http://localhost:3001');
 
@@ -15,6 +17,8 @@ const Chat = ({ username }: { username: string }) => {
   const [isClient, setIsClient] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false)
+  const [selectedMessageById, setSelectedMessageById] = useState<number|null>(null)
 
   useEffect(() => {
     setIsClient(true);
@@ -25,16 +29,52 @@ const Chat = ({ username }: { username: string }) => {
       setMessages((prev) => [...prev, message]);
     });
 
+    socket.on('updateMessage',(updatedMessage) => {
+       
+      setMessages((prev)=>  prev.map((msg) => msg.id === updatedMessage.id ? {...msg,content : updatedMessage.content} : msg))
+      
+    })
+
     return () => {
       socket.off('getMessages');
       socket.off('newMessage');
+      socket.off('updateMessage')
     };
   }, [username]);
 
+
+  const printpdf = (fileName:string) => {
+    
+    const url = `http://localhost:3001/uploads/${fileName}`
+    const newwindow  =  window.open(url,'_blank')
+    if(newwindow){
+      newwindow.onload = () => {
+
+        newwindow.print()
+      }
+    }
+
+
+  }
+
   const sendMessage = async () => {
     if (newMessage.trim()) {
-      socket.emit('sendMessage', { username, content: newMessage });
-      setNewMessage('');
+      if (isEditing && selectedMessageById !== null) {
+        // Emit editMessage event to update the existing message
+        socket.emit('editMessage', { id: selectedMessageById, content: newMessage });
+  
+        // Update the message locally after edit
+        setMessages(prevMessages => prevMessages.map(msg =>
+          msg.id === selectedMessageById ? { ...msg, content: newMessage } : msg
+        ));
+        
+      } else {
+        // Emit sendMessage event to send a new message
+        socket.emit('sendMessage', { username, content: newMessage });
+      }
+      setNewMessage('');  // Clear the input field
+      setIsEditing(false); // Reset editing state
+      setSelectedMessageById(null); // Reset selected message ID
     } else if (selectedFile) {
       await uploadFile(selectedFile);
       setSelectedFile(null);
@@ -84,9 +124,22 @@ const Chat = ({ username }: { username: string }) => {
     }
   };
 
+  const handleEdit = (id:number,content:string) => {
+
+    setIsEditing(true)
+    setSelectedMessageById(id)
+    setNewMessage(content)
+
+  }
+
   const renderFilePreview = (fileType: string, fileName: string) => {
+
+    const url = `http://localhost:3001/uploads/${fileName}`
+
     if (fileType.startsWith('image/')) {
       return (
+        <div>
+
         <Image
           src={`http://localhost:3001/uploads/${fileName}`}
           alt="Image Preview"
@@ -94,11 +147,21 @@ const Chat = ({ username }: { username: string }) => {
           width={300}  // Limit the width
           className=" max-w-full rounded"
         />
+
+        <a href={url} download={fileName} className="mt-2 bg-blue-600 text-white px-4 py-2 rounded block text-center">
+          Donwload
+        </a>
+
+        </div>
+
       );
     }
   
     if (fileType === 'application/pdf') {
       return (
+
+        <div>
+
         <iframe
           src={`http://localhost:3001/uploads/${fileName}#toolbar=0`}
           width="276"
@@ -106,8 +169,23 @@ const Chat = ({ username }: { username: string }) => {
           title="PDF Preview"
           className="overflow-hidden"
         ></iframe>
+
+        <button  
+        className="mt-2 bg-blue-500 text-white  px-8  py-3 rounded block"
+        onClick={() =>printpdf(fileName)}>
+          Print
+        </button>
+
+      </div>
+
+
+        
       );
+
+
     }
+
+    
   
     if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       return (
@@ -126,6 +204,37 @@ const Chat = ({ username }: { username: string }) => {
     }
   
   };
+
+  const renderMessageContent  = (content:string | null | undefined) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    if (!content) return null;
+    return content.split(urlRegex).map((part,index) => {
+
+      if (part.match(urlRegex)){
+
+        return (
+
+          <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 underline"
+        >
+          {part}
+        </a>
+        )
+      }
+
+      else{
+
+        return(
+
+          <span key={index}>{part}</span>
+        )
+      }
+    })
+  }
   
   return (
     <div className="w-[90rem] mx-auto bg-black p-4 rounded shadow-md h-[75rem] flex flex-col">
@@ -146,7 +255,15 @@ const Chat = ({ username }: { username: string }) => {
                   }`}
                 >
                   <p className="text-xs font-semibold">{msg.sender.username}</p>
-                  <p>{msg.content}</p>
+                  <p>{renderMessageContent(msg.content)}</p>
+                  {isMyMessage && (
+                    <button
+                      className="text-blue-500 text-xs mt-1"
+                      onClick={() => handleEdit(msg.id, msg.content)}
+                    >
+                      Edit
+                    </button>
+                  )}
 
                   {/* Display File Preview */}
                   {msg.fileUrl && isClient && (
@@ -157,7 +274,7 @@ const Chat = ({ username }: { username: string }) => {
                           href={`http://localhost:3001/uploads/${msg.fileName}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-black underline block mt-2 h-10 w-60"
+                          className="text-black uppercase font-semibold  font-sans block mt-2 h-10 w-60"
                         >
                           {msg.fileName || 'Download File'}
                         </a>
@@ -182,7 +299,7 @@ const Chat = ({ username }: { username: string }) => {
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
         />
         <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={sendMessage}>
-          Send
+        <BsSendFill />
         </button>
 
         <input
@@ -196,7 +313,7 @@ const Chat = ({ username }: { username: string }) => {
           className="bg-green-500 text-white px-4 py-2 rounded"
           onClick={() => document.getElementById('fileInput')?.click()}
         >
-          Upload
+          <TiAttachmentOutline />
         </button>
       </div>
     </div>
