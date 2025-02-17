@@ -3,10 +3,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ChatGateway } from './chat/chat.gateway';
 import { PrismaService } from './prisma.service';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
-  imports: [],
+  imports: [ChatModule],
   controllers: [AppController],
-  providers: [AppService, ChatGateway,PrismaService,ChatGateway],
+  providers: [AppService],
 })
 export class AppModule {}
