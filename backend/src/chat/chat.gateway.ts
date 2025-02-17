@@ -99,4 +99,19 @@ export class ChatGateway {
 
     client.emit("getMessages", messages);
   }
+
+  @SubscribeMessage('editMessage')
+  async  handleEditMessage(@MessageBody() data:{id:number,content:string}){
+
+    const {id,content} = data
+    const updatedMessage  =  await this.prisma.message.update({
+
+      where:{id:Number(id)},
+      data:{content:content},
+      include:{sender:true}
+    })
+
+    this.server.emit('updateMessage',updatedMessage )
+    return updatedMessage
+  }
 }
