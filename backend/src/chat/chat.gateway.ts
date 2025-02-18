@@ -114,4 +114,33 @@ export class ChatGateway {
     this.server.emit('updateMessage',updatedMessage )
     return updatedMessage
   }
+
+  @SubscribeMessage('deleteMessage')
+  async handleDeleteMessage(@MessageBody() data:{id:number}){
+
+    const {id} = data
+    const message =  await this.prisma.message.findUnique({
+
+      where:{id:Number(id)}
+    })
+
+    if (!message) {
+      console.error("Message not found.");
+      return { error: "Message not found" };
+    }
+
+    if(message.fileUrl){
+
+      const filePath  =  path.join(__dirname,"..",message.fileUrl)
+      if(fs.existsSync(filePath)){
+
+        fs.unlinkSync(filePath)
+      }
+
+
+    }
+
+    await this.prisma.message.delete({where:{id:Number(id)}})
+    return {success:true}
+  }
 }
