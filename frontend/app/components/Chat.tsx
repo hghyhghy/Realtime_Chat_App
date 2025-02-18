@@ -205,8 +205,9 @@ const Chat = ({ username }: { username: string }) => {
   
   };
 
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
   const renderMessageContent  = (content:string | null | undefined) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
     if (!content) return null;
     return content.split(urlRegex).map((part,index) => {
 
@@ -254,9 +255,9 @@ const Chat = ({ username }: { username: string }) => {
                     isMyMessage ? 'bg-white text-black rounded-br-none' : 'bg-gray-300 text-black rounded-bl-none'
                   }`}
                 >
-                  <p className="text-xs font-semibold">{msg.sender.username}</p>
+                  <p className="text-xs font-semibold">{msg.sender.username === username ? "You" : msg.sender.username}</p>
                   <p>{renderMessageContent(msg.content)}</p>
-                  {isMyMessage && (
+                  {isMyMessage &&  !msg.fileUrl && !msg.content?.match(urlRegex) && (
                     <button
                       className="text-blue-500 text-xs mt-1"
                       onClick={() => handleEdit(msg.id, msg.content)}
