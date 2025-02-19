@@ -141,6 +141,7 @@ export class ChatGateway {
     }
 
     await this.prisma.message.delete({where:{id:Number(id)}})
+    this.server.emit('deleteMessage',id)
     return {success:true}
   }
 }
