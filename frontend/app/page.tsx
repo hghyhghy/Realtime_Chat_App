@@ -10,7 +10,7 @@ export default function Home() {
     <div className="flex flex-col items-center justify-center h-screen">
       {username === null ? (
         <div className="p-4 bg-gray-200 rounded-lg shadow-md">
-          <h2 className="mb-2 text-lg font-semibold">Enter Your Name</h2>
+          <h2 className="mb-2 text-lg font-semibold text-black">Enter Your Name</h2>
           <input
             type="text"
             className="p-2 border rounded text-black"

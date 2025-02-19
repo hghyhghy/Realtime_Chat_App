@@ -5,6 +5,9 @@ import io from 'socket.io-client';
 import Image from 'next/image';
 import { TiAttachmentOutline } from "react-icons/ti";
 import { BsSendFill } from "react-icons/bs";
+import { MdDelete } from "react-icons/md";
+import { FiPlusCircle } from "react-icons/fi";
+import { CiEdit } from "react-icons/ci";
 
 const socket = io('http://localhost:3001');
 
@@ -19,6 +22,12 @@ const Chat = ({ username }: { username: string }) => {
   const [isImageExpanded, setIsImageExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false)
   const [selectedMessageById, setSelectedMessageById] = useState<number|null>(null)
+  const [messageOptions, setMessageOptions] = useState<number|null>(null)
+
+  const toggleOptions = (messageId:number) => {
+
+    setMessageOptions(messageOptions === messageId? null : messageId)
+  }
 
   useEffect(() => {
     setIsClient(true);
@@ -35,10 +44,16 @@ const Chat = ({ username }: { username: string }) => {
       
     })
 
+    socket.on('deleteMessage',(messageId) => {
+
+      setMessages((prev) => prev.filter((msg) =>  msg.id != messageId))
+    })
+
     return () => {
       socket.off('getMessages');
       socket.off('newMessage');
       socket.off('updateMessage')
+      socket.off('deleteMessage')
     };
   }, [username]);
 
@@ -130,6 +145,11 @@ const Chat = ({ username }: { username: string }) => {
     setSelectedMessageById(id)
     setNewMessage(content)
 
+  }
+
+  const deleteMessage= (messageId:number) => {
+
+    socket.emit('deleteMessage',{id:messageId})
   }
 
   const renderFilePreview = (fileType: string, fileName: string) => {
@@ -247,9 +267,10 @@ const Chat = ({ username }: { username: string }) => {
           messages.map((msg) => {
             const isMyMessage = msg.sender.username === username;
             const isImage = msg.fileType?.startsWith('image/');
-
+          
             return (
-              <div key={msg.id} className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
+              <div key={msg.id} className={`flex items-center ${isMyMessage ? 'justify-end' : 'justify-start'} gap-2`}>
+                {/* Message Bubble */}
                 <div
                   className={`p-2 max-w-[75%] rounded-lg text-sm ${
                     isMyMessage ? 'bg-white text-black rounded-br-none' : 'bg-gray-300 text-black rounded-bl-none'
@@ -257,16 +278,8 @@ const Chat = ({ username }: { username: string }) => {
                 >
                   <p className="text-xs font-semibold">{msg.sender.username === username ? "You" : msg.sender.username}</p>
                   <p>{renderMessageContent(msg.content)}</p>
-                  {isMyMessage &&  !msg.fileUrl && !msg.content?.match(urlRegex) && (
-                    <button
-                      className="text-blue-500 text-xs mt-1"
-                      onClick={() => handleEdit(msg.id, msg.content)}
-                    >
-                      Edit
-                    </button>
-                  )}
-
-                  {/* Display File Preview */}
+          
+                  {/* File Preview (If any) */}
                   {msg.fileUrl && isClient && (
                     <div className="mt-2">
                       {renderFilePreview(msg.fileType || '', msg.fileName || '')}
@@ -275,7 +288,7 @@ const Chat = ({ username }: { username: string }) => {
                           href={`http://localhost:3001/uploads/${msg.fileName}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-black uppercase font-semibold  font-sans block mt-2 h-10 w-60"
+                          className="text-black uppercase font-semibold font-sans block mt-2 h-10 w-60"
                         >
                           {msg.fileName || 'Download File'}
                         </a>
@@ -283,11 +296,43 @@ const Chat = ({ username }: { username: string }) => {
                     </div>
                   )}
                 </div>
+          
+                {/* + Button with Dropdown */}
+                {isMyMessage && (
+                  <div className="relative">
+                    <button
+                      className="text-gray-500 hover:text-gray-700"
+                      onClick={() => toggleOptions(msg.id)}
+                    >
+                      <FiPlusCircle size={18} />
+                    </button>
+          
+                    {messageOptions === msg.id && (
+                      <div className="absolute top-6 right-0 bg-white shadow-md rounded-lg p-2 flex flex-col gap-2 w-24">
+                        {!msg.fileUrl && !msg.content?.match(urlRegex) && (
+                          <button
+                            className=" text-xs  flex items-center gap-1 text-black font-bold"
+                            onClick={() => handleEdit(msg.id, msg.content)}
+                          >
+                            <CiEdit/> Edit
+                          </button>
+                        )}
+                        <button
+                          className="text-black font-bold text-xs flex items-center gap-1 "
+                          onClick={() => deleteMessage(msg.id)}
+                        >
+                          <MdDelete /> Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
-          })
-        )}
-      </div>
+          }))}
+          
+
+          </div>
 
       {/* Input Field - Stays at the Bottom */}
       <div className="flex gap-2 p-4 bg-black shadow-md">
